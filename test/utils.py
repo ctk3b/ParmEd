@@ -8,7 +8,8 @@ import unittest
 import warnings
 from os.path import join, split, abspath
 from parmed import gromacs
-from parmed.utils.six import string_types
+from parmed import lammps
+from parmed.utils.six import string_types, PY2
 from parmed.utils.six.moves import zip
 warnings.filterwarnings('error', category=DeprecationWarning)
 
@@ -31,6 +32,8 @@ except ImportError:
 run_all_tests = os.getenv('PARMED_RUN_ALL_TESTS') is not None
 
 HAS_GROMACS = os.path.isdir(gromacs.GROMACS_TOPDIR)
+HAS_LAMMPS = lammps.LAMMPS_EXE
+
 
 class TestCaseRelative(unittest.TestCase):
 
