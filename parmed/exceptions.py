@@ -40,7 +40,10 @@ class ParameterError(ParmedError):
     """ If a parameter is missing from a database """
 
 class GromacsError(ParmedError):
-    """ If there is a problem parsing GROMACS topology files """
+    """ If there is a problem parsing GROMACS files """
+
+class LammpsError(ParmedError):
+    """ If there is a problem parsing LAMMPS files """
 
 class FormatNotFound(ParmedError):
     """ If the file format does not have a registered parser with it """
@@ -91,7 +94,10 @@ class CharmmWarning(ParmedWarning):
     """ For non-fatal PSF parsing issues """
 
 class GromacsWarning(ParmedWarning):
-    " If we are uncertain about something regarding the GROMACS topology file "
+    """ If we are uncertain about something regarding the GROMACS file """
+
+class LammpsWarning(ParmedWarning):
+    """ If we are uncertain about something regarding the LAMMPS file """
 
 class ParameterWarning(ParmedWarning):
     """ If a type of parameter is missing, but you don't want it to be fatal """
