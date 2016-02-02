@@ -10,6 +10,14 @@ import copy
 from datetime import datetime
 import math
 import os
+import re
+try:
+    from string import letters
+except ImportError:
+    from string import ascii_letters as letters
+import sys
+import warnings
+
 from parmed.constants import TINY, DEG_TO_RAD
 from parmed.exceptions import GromacsError, GromacsWarning, ParameterError
 from parmed.formats.registry import FileFormatType
@@ -27,13 +35,7 @@ from parmed import unit as u
 from parmed.utils.io import genopen
 from parmed.utils.six import add_metaclass, string_types, iteritems
 from parmed.utils.six.moves import range
-import re
-try:
-    from string import letters
-except ImportError:
-    from string import ascii_letters as letters
-import sys
-import warnings
+
 
 # Gromacs uses "funct" flags in its parameter files to indicate what kind of
 # functional form is used for each of its different parameter types. This is
@@ -1338,7 +1340,7 @@ class GromacsTopologyFile(Structure):
             now = datetime.now()
             dest.write('''\
 ;
-;   File %swas generated
+;   File %s was generated
 ;   By user: %s (%d)
 ;   On host: %s
 ;   At date: %s
