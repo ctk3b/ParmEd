@@ -1214,6 +1214,8 @@ class Structure(object):
             - Mol3 file (.mol3, mol3)
             - Amber ASCII restart (.rst7/.inpcrd/.restrt, rst7)
             - Amber NetCDF restart (.ncrst, ncrst)
+            - Lammps data file (.data, lammps)
+            - Lammps input file (.input/.in, lammps)
 
         Parameters
         ----------
@@ -1241,24 +1243,27 @@ class Structure(object):
         ``overwrite`` is ``False``, the filesystem is read-only, or write
         permissions are not granted for the user
         """
-        from parmed import amber, charmm, formats, gromacs
+        from parmed import amber, charmm, formats, gromacs, lammps
         extmap = {
-                '.pdb' : 'PDB',
-                '.pqr' : 'PQR',
-                '.cif' : 'CIF',
-                '.pdbx' : 'CIF',
-                '.parm7' : 'AMBER',
-                '.prmtop' : 'AMBER',
-                '.psf' : 'PSF',
-                '.top' : 'GROMACS',
-                '.gro' : 'GRO',
-                '.mol2' : 'MOL2',
-                '.mol3' : 'MOL3',
-                '.crd' : 'CHARMMCRD',
-                '.rst7' : 'RST7',
-                '.inpcrd' : 'RST7',
-                '.restrt' : 'RST7',
-                '.ncrst' : 'NCRST',
+            '.pdb': 'PDB',
+            '.pqr': 'PQR',
+            '.cif': 'CIF',
+            '.pdbx': 'CIF',
+            '.parm7': 'AMBER',
+            '.prmtop': 'AMBER',
+            '.psf': 'PSF',
+            '.top': 'GROMACS',
+            '.gro': 'GRO',
+            '.mol2': 'MOL2',
+            '.mol3': 'MOL3',
+            '.crd': 'CHARMMCRD',
+            '.rst7': 'RST7',
+            '.inpcrd': 'RST7',
+            '.restrt': 'RST7',
+            '.ncrst': 'NCRST',
+            '.data': 'LAMMPS',
+            '.input': 'LAMMPS',
+            '.in': 'LAMMPS',
         }
         # Basically everybody uses atom type names instead of type indexes. So
         # convert to atom type names and switch back if need be
@@ -1327,6 +1332,9 @@ class Structure(object):
                 rst7.coordinates = self.coordinates
                 rst7.box = self.box
                 rst7.write(fname, netcdf=(format == 'NCRST'))
+            elif format == 'LAMMPS':
+                s = lammps.LammpsDataFile.from_structure(self)
+                s.write(fname, **kwargs)
             else:
                 raise ValueError('No file type matching %s' % format)
         finally:
