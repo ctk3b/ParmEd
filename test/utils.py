@@ -11,7 +11,7 @@ from parmed import gromacs
 from parmed import lammps
 from parmed.utils.six import string_types, PY2
 from parmed.utils.six.moves import zip
-warnings.filterwarnings('error', category=DeprecationWarning)
+warnings.filterwarnings('error', category=DeprecationWarning, module='parmed')
 
 try:
     from simtk import openmm as mm
@@ -34,6 +34,23 @@ run_all_tests = os.getenv('PARMED_RUN_ALL_TESTS') is not None
 HAS_GROMACS = os.path.isdir(gromacs.GROMACS_TOPDIR)
 HAS_LAMMPS = lammps.LAMMPS_EXE
 
+
+class QuantityTestCase(unittest.TestCase):
+
+    def assertAlmostEqualQuantities(self, item1, item2, places=6):
+        try:
+            val1 = item1.value_in_unit(item1.unit)
+            val2 = item2.value_in_unit(item1.unit)
+        except TypeError:
+            raise self.failureException('Incompatible units %s and %s' %
+                                        (item1.unit, item2.unit))
+        try:
+            if len(val1) != len(val2):
+                raise self.failureException('collections are different lengths')
+            for x, y in zip(val1, val2):
+                self.assertAlmostEqual(x, y, places=places)
+        except TypeError:
+            self.assertAlmostEqual(val1, val2, places=places)
 
 class TestCaseRelative(unittest.TestCase):
 
@@ -113,7 +130,7 @@ def get_saved_fn(filename):
     ----------
     filename : str
         Name of the file to get
-    
+
     Returns
     -------
     str
@@ -151,7 +168,7 @@ def diff_files(file1, file2, ignore_whitespace=True,
     -------
     bool
         True if files match. False if they do not or one file does not exist
-    
+
     Notes
     -----
     This routine is not protected against bad types of input. AttributeError may
@@ -367,10 +384,10 @@ def create_random_structure(parametrized, novalence=False):
                 mass = random.random() * 16 + 1
                 atomic_number = random.randint(1, 8)
             charge = random.random() * 2 - 1
-            radii = random.random() * 2
+            solvent_radius = random.random() * 2
             screen = random.random() * 2
-            atom = Atom(atomic_number=atomic_number, type=type,
-                        charge=charge, mass=mass, radii=radii,
+            atom = Atom(atomic_number=atomic_number, type=type, charge=charge,
+                        mass=mass, solvent_radius=solvent_radius,
                         screen=screen, name=name)
             if parametrized:
                 atom.atom_type = typ
@@ -406,7 +423,7 @@ def create_random_structure(parametrized, novalence=False):
         struct.adjust_types.extend([AmoebaNonbondedExceptionType(0.5, 0.5, 0.6, 0.6, 0.7)
                                     for i in range(random.randint(10, 20))])
         struct.adjust_types.claim()
-    # Add valence terms with optional 
+    # Add valence terms with optional
     for i in range(random.randint(40, 50)):
         struct.bonds.append(Bond(*random.sample(struct.atoms, 2)))
         if parametrized:
@@ -494,7 +511,7 @@ def equal_atoms(tester, a1, a2):
     tester.assertEqual(a1.charge, a2.charge)
     tester.assertEqual(a1.mass, a2.mass)
     tester.assertEqual(a1.nb_idx, a2.nb_idx)
-    tester.assertEqual(a1.radii, a2.radii)
+    tester.assertEqual(a1.solvent_radius, a2.solvent_radius)
     tester.assertEqual(a1.tree, a2.tree)
     tester.assertEqual(a1.join, a2.join)
     tester.assertEqual(a1.irotat, a2.irotat)

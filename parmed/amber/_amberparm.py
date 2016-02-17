@@ -168,13 +168,16 @@ class AmberParm(AmberFormat, Structure):
         self.hasvels = False
         self.hasbox = False
         self._box = None
+        self.crdname = None
         if xyz is None and rst7_name is not None:
             warn('rst7_name keyword is deprecated. Use xyz instead',
                  DeprecationWarning)
-            xyz = rst7_name
+            self.crdname = xyz = rst7_name
         elif xyz is not None and rst7_name is not None:
             warn('rst7_name keyword is deprecated and ignored in favor of xyz',
                  DeprecationWarning)
+        if isinstance(xyz, string_types):
+            self.crdname = xyz
         if prm_name is not None:
             self.initialize_topology(xyz, box)
 
@@ -532,7 +535,7 @@ class AmberParm(AmberFormat, Structure):
             atom.join = join[i]
             atom.irotat = irot[i]
             atom.tree = tree[i]
-            atom.radii = radii[i]
+            atom.solvent_radius = radii[i]
             atom.screen = screen[i]
             if replace_atnum or atom.atomic_number == 0:
                 atom.atomic_number = atnum[i]
@@ -1464,7 +1467,7 @@ class AmberParm(AmberFormat, Structure):
         data['IROTAT'] = [atom.irotat for atom in self.atoms]
         data['NUMBER_EXCLUDED_ATOMS'] = [0 for atom in self.atoms]
         if 'RADII' in data:
-            data['RADII'] = [atom.radii for atom in self.atoms]
+            data['RADII'] = [atom.solvent_radius for atom in self.atoms]
         if 'SCREEN' in data:
             data['SCREEN'] = [atom.screen for atom in self.atoms]
         if 'ATOMIC_NUMBER' in data:

@@ -10,6 +10,7 @@ import copy
 from datetime import datetime
 import math
 import os
+import pwd
 import re
 try:
     from string import letters
@@ -404,8 +405,8 @@ class GromacsTopologyFile(Structure):
                         params.rb_torsion_types[rkey] = t
                 elif current_section == 'cmaptypes':
                     a1, a2, a3, a4, a5, t = self._parse_cmaptypes(line)
-                    params.cmap_types[(a1, a2, a3, a4, a5)] = t
-                    params.cmap_types[(a5, a4, a3, a2, a1)] = t
+                    params.cmap_types[(a1, a2, a3, a4, a2, a3, a4, a5)] = t
+                    params.cmap_types[(a5, a4, a3, a2, a4, a3, a2, a1)] = t
                 elif current_section == 'pairtypes':
                     a, b, t = self._parse_pairtypes(line)
                     params.pair_types[(a, b)] = params.pair_types[(b, a)] = t
@@ -1129,6 +1130,7 @@ class GromacsTopologyFile(Structure):
             if c.type is not None: continue
             key = (_gettype(c.atom1), _gettype(c.atom2), _gettype(c.atom3),
                     _gettype(c.atom4), _gettype(c.atom5))
+            key = (key[0],key[1],key[2],key[3],key[1],key[2],key[3],key[4])
             if key in params.cmap_types:
                 c.type = params.cmap_types[key]
                 c.type.used = True
@@ -1354,7 +1356,7 @@ class GromacsTopologyFile(Structure):
 ;   Command line:
 ;     %s
 ;
-''' % (fname, os.getlogin(), os.getuid(), os.uname()[1],
+''' % (fname, pwd.getpwuid(os.getuid())[0], os.getuid(), os.uname()[1],
        now.strftime('%a. %B  %w %X %Y'), os.path.split(sys.argv[0])[1],
        __version__, os.path.split(sys.argv[0])[1], gmx.GROMACS_TOPDIR,
        ' '.join(sys.argv)))
@@ -1507,7 +1509,7 @@ class GromacsTopologyFile(Structure):
                         used_keys.add(tuple(reversed(key)))
                         parfile.write('%-6s %-6s %-6s %-6s %-6s   1   '
                                       '%4d %4d' % (key[0], key[1], key[2],
-                                      key[3], key[4], param.resolution,
+                                      key[3], key[7], param.resolution,
                                       param.resolution))
                         res2 = param.resolution * param.resolution
                         for i in range(0, res2, 10):
