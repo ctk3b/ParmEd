@@ -130,69 +130,28 @@ class TestLammpsData(FileIOTestCase):
 
     def test_charmm27_top(self):
         """ Tests parsing a Lammps topology with CHARMM 27 FF """
-        top = LammpsTopologyFile(get_fn('1aki.charmm27.top'))
+        top = LammpsDataFile(get_fn('1aki.charmm27.top'))
         self.assertEqual(top.combining_rule, 'lorentz')
         self.assertEqual(top.itps, ['charmm27.ff/forcefield.itp',
                                     'charmm27.ff/tip3p.itp',
                                     'charmm27.ff/ions.itp'])
         self._charmm27_checks(top)
 
-    def test_gromacs_top_detection(self):
-        """ Tests automatic file detection of LAMMPS topology files """
+    def test_lammps_data_detection(self):
+        """ Tests automatic file detection of LAMMPS data files """
         fn = get_fn('test.top', written=True)
         with open(fn, 'w') as f:
             f.write('# not a gromacs topology file\n')
-        self.assertFalse(LammpsTopologyFile.id_format(fn))
+        self.assertFalse(LammpsDataFile.id_format(fn))
         with open(fn, 'w') as f:
             pass
-        self.assertFalse(LammpsTopologyFile.id_format(fn))
-
-    def test_gromacs_file(self):
-        """ Test LammpsFile helper class """
-        f = StringIO('This is the first line \\\n  this is still the first line'
-                     '\nThis is the second line')
-        gf = LammpsFile(f)
-        self.assertEqual(gf.readline(), 'This is the first line    this is '
-                         'still the first line\n')
-        self.assertEqual(gf.readline(), 'This is the second line')
-        self.assertEqual(gf.readline(), '')
-        f.seek(0)
-        lines = [line for line in gf]
-        self.assertEqual(lines[0], 'This is the first line    this is '
-                         'still the first line\n')
-        self.assertEqual(lines[1], 'This is the second line')
-
-        # Try with comments now
-        f = StringIO('This is the first line \\\n  this is still the first line'
-                     ' ; and this is a comment\nThis is the second line ; and '
-                     'this is also a comment')
-        gf = LammpsFile(f)
-        self.assertEqual(gf.readline(), 'This is the first line    this is still'
-                         ' the first line \n')
-        self.assertEqual(gf.readline(), 'This is the second line \n')
-        f.seek(0)
-        lines = [line for line in gf]
-        self.assertEqual(lines[0], 'This is the first line    this is still'
-                         ' the first line \n')
-        self.assertEqual(lines[1], 'This is the second line \n')
-        f.seek(0)
-        lines = gf.readlines()
-        self.assertEqual(lines[0], 'This is the first line    this is still'
-                         ' the first line \n')
-        self.assertEqual(lines[1], 'This is the second line \n')
-        f.seek(0)
-        self.assertEqual(gf.read(), 'This is the first line    this is still'
-                         ' the first line \nThis is the second line \n')
-
-        # Error handling
-        self.assertRaises(IOError, lambda:
-                LammpsFile('some_file that does_not exist'))
+        self.assertFalse(LammpsDataFile.id_format(fn))
 
     def test_write_charmm27_top(self):
         """ Tests writing a Lammps topology file with CHARMM 27 FF """
         top = load_file(get_fn('1aki.charmm27.top'))
         self.assertEqual(top.combining_rule, 'lorentz')
-        LammpsTopologyFile.write(top,
+        LammpsDataFile.write(top,
                 get_fn('1aki.charmm27.top', written=True))
         top2 = load_file(get_fn('1aki.charmm27.top', written=True))
         self._charmm27_checks(top)
@@ -289,10 +248,10 @@ class TestLammpsData(FileIOTestCase):
         """ Tests that Lammps topologies never have duplicate moleculetypes """
         parm = load_file(get_fn('phenol.prmtop'))
         parm = parm * 20 + load_file(get_fn('biphenyl.prmtop')) * 20
-        top = LammpsTopologyFile.from_structure(parm)
+        top = LammpsDataFile.from_structure(parm)
         self.assertEqual(top.combining_rule, 'lorentz')
         top.write(get_fn('phenol_biphenyl.top', written=True))
-        top2 = LammpsTopologyFile(get_fn('phenol_biphenyl.top', written=True))
+        top2 = LammpsDataFile(get_fn('phenol_biphenyl.top', written=True))
         self.assertEqual(len(top.residues), 40)
 
         # Now test this when we use "combine"
@@ -312,17 +271,17 @@ class TestLammpsData(FileIOTestCase):
             for a1, a2 in zip(r1, r2):
                 self._equal_atoms(a1, a2)
 
-    def test_gromacs_top_from_structure(self):
-        """ Tests the LammpsTopologyFile.from_structure constructor """
+    def test_lammps_data_from_structure(self):
+        """ Tests the LammpsDataFile.from_structure constructor """
         struct = create_random_structure(True)
         self.assertRaises(TypeError, lambda:
-                LammpsTopologyFile.from_structure(struct))
+                LammpsDataFile.from_structure(struct))
         parm = load_file(get_fn('ash.parm7'))
         parm.dihedrals[0].type.scee = 8.0
         self.assertRaises(LammpsError, lambda:
-                LammpsTopologyFile.from_structure(parm))
+                LammpsDataFile.from_structure(parm))
         for dt in parm.dihedral_types: dt.scee = dt.scnb = 0
-        top = LammpsTopologyFile.from_structure(parm)
+        top = LammpsDataFile.from_structure(parm)
         self.assertEqual(top.defaults.fudgeLJ, 1.0)
         self.assertEqual(top.defaults.fudgeQQ, 1.0)
 
@@ -343,7 +302,7 @@ class TestLammpsData(FileIOTestCase):
         np.testing.assert_equal(parm2.coordinates, parm.coordinates)
         np.testing.assert_equal(parm2.box, [10, 10, 10, 90, 90, 90])
         # Check the copy constructor
-        p2 = LammpsTopologyFile.from_structure(parm, copy=True)
+        p2 = LammpsDataFile.from_structure(parm, copy=True)
         self.assertEqual(p2.combining_rule, 'geometric')
         self.assertEqual(p2.defaults.comb_rule, 3)
         self.assertEqual(len(p2.atoms), len(parm.atoms))
@@ -361,7 +320,7 @@ class TestLammpsData(FileIOTestCase):
         parm = load_file(os.path.join(get_fn('01.1water'), 'topol.top'))
         parm[0].atomic_number = parm[0].atom_type.atomic_number = 7
         parm.write(fn)
-        with closing(LammpsFile(fn)) as f:
+        with closing(LammpsDataFile(fn)) as f:
             for line in f:
                 self.assertNotIn('settles', line)
 
@@ -370,7 +329,7 @@ class TestLammpsData(FileIOTestCase):
         f = StringIO('; TIP4Pew water molecule\n#include "amber99sb.ff/forcefield.itp"\n'
                      '#include "amber99sb.ff/tip4pew.itp"\n[ system ]\nWATER\n'
                      '[ molecules ]\nSOL 1\n')
-        parm = LammpsTopologyFile(f)
+        parm = LammpsDataFile(f)
         fn = get_fn('test.top', written=True)
         parm.write(fn)
         parm2 = load_file(fn)
@@ -394,49 +353,49 @@ class TestLammpsData(FileIOTestCase):
         parm.impropers.append(Improper(*parm.atoms[:4]))
         parm.write(fn)
 
-    def test_bad_top_loads(self):
-        """ Test error catching in LammpsTopologyFile reading """
+    def test_bad_data_loads(self):
+        """ Test error catching in LammpsDataFile reading """
         fn = os.path.join(get_fn('03.AlaGlu'), 'topol.top')
         self.assertRaises(TypeError, lambda: load_file(fn, xyz=fn))
-        self.assertRaises(ValueError, lambda: LammpsTopologyFile(xyz=1, box=1))
+        self.assertRaises(ValueError, lambda: LammpsDataFile(xyz=1, box=1))
         wfn = os.path.join(get_fn('gmxtops'), 'duplicated_topol.top')
-        self.assertRaises(LammpsError, lambda: LammpsTopologyFile(wfn))
+        self.assertRaises(LammpsError, lambda: LammpsDataFile(wfn))
         f = StringIO('\n[ defaults ]\n; not enough data\n 1\n\n')
-        self.assertRaises(LammpsError, lambda: LammpsTopologyFile(f))
+        self.assertRaises(LammpsError, lambda: LammpsDataFile(f))
         f = StringIO('\n[ defaults ]\n; unsupported function type\n 2 1 yes\n')
-        self.assertRaises(LammpsWarning, lambda: LammpsTopologyFile(f))
+        self.assertRaises(LammpsWarning, lambda: LammpsDataFile(f))
         warnings.filterwarnings('ignore', category=LammpsWarning)
         f.seek(0)
-        self.assertTrue(LammpsTopologyFile(f).unknown_functional)
+        self.assertTrue(LammpsDataFile(f).unknown_functional)
         warnings.filterwarnings('error', category=LammpsWarning)
         fn = os.path.join(get_fn('gmxtops'), 'bad_vsites3.top')
         self.assertRaises(LammpsError, lambda: load_file(fn))
         self.assertRaises(ValueError, lambda: load_file(fn, defines=dict()))
         f = StringIO('\n[ defaults ]\n1 1 yes\n\n[ system ]\nname\n'
                      '[ molecules ]\nNOMOL  2\n')
-        self.assertRaises(LammpsError, lambda: LammpsTopologyFile(f))
+        self.assertRaises(LammpsError, lambda: LammpsDataFile(f))
         fn = os.path.join(get_fn('gmxtops'), 'bad_nrexcl.top')
         self.assertRaises(LammpsWarning, lambda:
-                LammpsTopologyFile(fn, defines=dict(SMALL_NREXCL=1))
+                LammpsDataFile(fn, defines=dict(SMALL_NREXCL=1))
         )
-        self.assertRaises(LammpsWarning, lambda: LammpsTopologyFile(fn))
+        self.assertRaises(LammpsWarning, lambda: LammpsDataFile(fn))
         self.assertRaises(LammpsWarning, lambda:
-                LammpsTopologyFile(wfn, defines=dict(NODUP=1))
+                LammpsDataFile(wfn, defines=dict(NODUP=1))
         )
         self.assertRaises(LammpsError, lambda:
-                LammpsTopologyFile(wfn, defines=dict(NODUP=1, BADNUM=1))
+                LammpsDataFile(wfn, defines=dict(NODUP=1, BADNUM=1))
         )
-        self.assertRaises(RuntimeError, LammpsTopologyFile().parametrize)
+        self.assertRaises(RuntimeError, LammpsDataFile().parametrize)
 
-    def test_top_parsing_missing_types(self):
+    def test_data_parsing_missing_types(self):
         """ Test LAMMPS topology files with missing types """
         warnings.filterwarnings('error', category=LammpsWarning)
         self.assertRaises(LammpsWarning, lambda:
-                LammpsTopologyFile(os.path.join(get_fn('gmxtops'),
+                LammpsDataFile(os.path.join(get_fn('gmxtops'),
                                     'missing_atomtype.top'), parametrize=False)
         )
         warnings.filterwarnings('ignore', category=LammpsWarning)
-        top = LammpsTopologyFile(os.path.join(get_fn('gmxtops'),
+        top = LammpsDataFile(os.path.join(get_fn('gmxtops'),
                                   'missing_atomtype.top'), parametrize=False)
         self.assertIs(top[0].atom_type, UnassignedAtomType)
         self.assertEqual(top[0].mass, -1)
@@ -447,98 +406,8 @@ class TestLammpsData(FileIOTestCase):
         self.assertEqual(top.bonds[0].funct, 2)
         self.assertTrue(top.unknown_functional)
 
-    def test_molecule_ordering(self):
-        """ Tests non-contiguous atoms in Lammps topology file writes """
-        warnings.filterwarnings('ignore', category=LammpsWarning)
-        parm = load_file(os.path.join(get_fn('12.DPPC'), 'topol3.top'))
-        parm.write(get_fn('topol3.top', written=True))
-        parm2 = load_file(get_fn('topol3.top', written=True))
-        self.assertEqual(len(parm.atoms), len(parm2.atoms))
-        self.assertEqual(len(parm.residues), len(parm2.residues))
-        for r1, r2 in zip(parm.residues, parm2.residues):
-            self.assertEqual(r1.name, r2.name)
-            for a1, a2 in zip(r1.atoms, r2.atoms):
-                self.assertEqual(a1.name, a2.name)
-                self.assertEqual(a1.type, a2.type)
-
-    def test_copying_defaults(self):
-        """ Tests that copying LammpsTopologyFile copies Defaults too """
-        parm = load_file(get_fn('159.top'))
-        newfile = StringIO()
-        copy.copy(parm).write(newfile)
-        newfile.seek(0)
-        newparm = LammpsTopologyFile(newfile)
-        self.assertEqual(parm.defaults, newparm.defaults)
-
-    def test_getitem_defaults(self):
-        """ Tests that LammpsTopologyFile[] sets Defaults correctly """
-        parm = load_file(get_fn('159.top'))
-        newfile = StringIO()
-        parm[0,:].write(newfile)
-        newfile.seek(0)
-        newparm = LammpsTopologyFile(newfile)
-        self.assertEqual(parm.defaults, newparm.defaults)
-
-    def test_molecule_combine(self):
-        """ Tests selective molecule combination in Lammps topology files """
-        warnings.filterwarnings('ignore', category=LammpsWarning)
-        parm = load_file(os.path.join(get_fn('12.DPPC'), 'topol3.top'))
-        fname = get_fn('combined.top', written=True)
-        # Make sure that combining non-adjacent molecules fails
-        self.assertRaises(ValueError, lambda:
-                parm.write(fname, combine=[[1, 3]]))
-        self.assertRaises(ValueError, lambda:
-                parm.write(fname, combine='joey'))
-        self.assertRaises(TypeError, lambda:
-                parm.write(fname, combine=[1, 2, 3]))
-        self.assertRaises(TypeError, lambda:
-                parm.write(fname, combine=1))
-        parm.write(fname, combine=[[3, 4], [126, 127, 128, 129, 130]])
-        with open(fname, 'r') as f:
-            for line in f:
-                if line.startswith('[ molecules ]'):
-                    break
-            molecule_list = []
-            for line in f:
-                if line[0] == ';': continue
-                words = line.split()
-                molecule_list.append((words[0], int(words[1])))
-        parm2 = load_file(fname)
-        self.assertEqual(molecule_list, [('DPPC', 3), ('system1', 1),
-                         ('SOL', 121), ('system2', 1), ('SOL', 121)])
-        self.assertEqual(len(parm2.atoms), len(parm.atoms))
-        self.assertEqual(len(parm2.residues), len(parm2.residues))
-        for a1, a2 in zip(parm.atoms, parm2.atoms):
-            self._equal_atoms(a1, a2)
-        for r1, r2 in zip(parm.residues, parm2.residues):
-            self.assertEqual(len(r1), len(r2))
-            for a1, a2 in zip(r1, r2):
-                self._equal_atoms(a1, a2)
-        # Now combine multiple DPPC and multiple waters in the same molecule
-        parm.write(fname, combine=[[2, 3, 4, 5], [128, 129, 130, 131]])
-        with open(fname, 'r') as f:
-            for line in f:
-                if line.startswith('[ molecules ]'):
-                    break
-            molecule_list = []
-            for line in f:
-                if line[0] == ';': continue
-                words = line.split()
-                molecule_list.append((words[0], int(words[1])))
-        self.assertEqual(molecule_list, [('DPPC', 2), ('system1', 1),
-                         ('SOL', 120), ('DPPC', 2), ('system2', 1), ('SOL', 120)])
-        parm2 = load_file(fname)
-        self.assertEqual(len(parm2.atoms), len(parm.atoms))
-        self.assertEqual(len(parm2.residues), len(parm2.residues))
-        for a1, a2 in zip(parm.atoms, parm2.atoms):
-            self._equal_atoms(a1, a2)
-        for r1, r2 in zip(parm.residues, parm2.residues):
-            self.assertEqual(len(r1), len(r2))
-            for a1, a2 in zip(r1, r2):
-                self._equal_atoms(a1, a2)
-
-    def test_gromacs_top_write(self):
-        """ Tests the LammpsTopologyFile writer """
+    def test_lammps_data_write(self):
+        """ Tests the LammpsDataFile writer """
         def total_diheds(dlist):
             n = 0
             for d in dlist:
@@ -548,7 +417,7 @@ class TestLammpsData(FileIOTestCase):
                     n += 1
             return n
         parm = load_file(get_fn('ash.parm7'))
-        top = LammpsTopologyFile.from_structure(parm)
+        top = LammpsDataFile.from_structure(parm)
         self.assertRaises(TypeError, lambda: top.write(10))
         f = StringIO()
         self.assertRaises(ValueError, lambda: top.write(f, parameters=10))
@@ -651,7 +520,7 @@ class TestLammpsData(FileIOTestCase):
         )
         for atom in psf.atoms:
             self.assertIsNot(atom.atom_type, UnassignedAtomType)
-        ctop = LammpsTopologyFile.from_structure(psf)
+        ctop = LammpsDataFile.from_structure(psf)
         for atom in ctop.atoms:
             self.assertIsNot(atom.atom_type, UnassignedAtomType)
             self.assertIsInstance(atom.type, str)
@@ -659,58 +528,6 @@ class TestLammpsData(FileIOTestCase):
         top2 = load_file(fn)
         self.assertGreater(len(top2.urey_bradleys), 0)
         self.assertEqual(len(top2.urey_bradleys), len(ctop.urey_bradleys))
-
-    def test_private_functions(self):
-        """ Tests private helper functions for LammpsTopologyFile """
-        Defaults = gmx.gromacstop._Defaults
-        self.assertRaises(ValueError, lambda: Defaults(nbfunc=3))
-        self.assertRaises(ValueError, lambda: Defaults(comb_rule=4))
-        self.assertRaises(ValueError, lambda: Defaults(gen_pairs='nada'))
-        self.assertRaises(ValueError, lambda: Defaults(fudgeLJ=-1.0))
-        self.assertRaises(ValueError, lambda: Defaults(fudgeQQ=-1.0))
-        repr(Defaults()) # To make sure it doesn't crash
-        defaults = Defaults(nbfunc=2, comb_rule=3, gen_pairs='no', fudgeLJ=2.0,
-                            fudgeQQ=1.5)
-        self.assertEqual(defaults[0], 2)
-        self.assertEqual(defaults[1], 3)
-        self.assertEqual(defaults[2], 'no')
-        self.assertEqual(defaults[3], 2.0)
-        self.assertEqual(defaults[4], 1.5)
-        self.assertEqual(defaults[-1], 1.5)
-        self.assertEqual(defaults[-2], 2.0)
-        self.assertEqual(defaults[-3], 'no')
-        self.assertEqual(defaults[-4], 3)
-        self.assertEqual(defaults[-5], 2)
-        self.assertRaises(IndexError, lambda: defaults[-6])
-        self.assertRaises(IndexError, lambda: defaults[5])
-        # Try setting as an array
-        defaults[0] = defaults[1] = 1
-        defaults[2] = 'yes'
-        defaults[3] = 1.5
-        defaults[4] = 2.0
-        self.assertEqual(defaults.nbfunc, 1)
-        self.assertEqual(defaults.comb_rule, 1)
-        self.assertEqual(defaults.gen_pairs, 'yes')
-        self.assertEqual(defaults.fudgeLJ, 1.5)
-        self.assertEqual(defaults.fudgeQQ, 2.0)
-        defaults[-5] = defaults[-4] = 1
-        defaults[-3] = 'yes'
-        defaults[-2] = 1.5
-        defaults[-1] = 2.0
-        self.assertEqual(defaults.nbfunc, 1)
-        self.assertEqual(defaults.comb_rule, 1)
-        self.assertEqual(defaults.gen_pairs, 'yes')
-        self.assertEqual(defaults.fudgeLJ, 1.5)
-        self.assertEqual(defaults.fudgeQQ, 2.0)
-        # Error checking
-        def setter(idx, val):
-            defaults[idx] = val
-        self.assertRaises(ValueError, lambda: setter(0, 0))
-        self.assertRaises(ValueError, lambda: setter(1, 0))
-        self.assertRaises(ValueError, lambda: setter(2, 'nada'))
-        self.assertRaises(ValueError, lambda: setter(3, -1))
-        self.assertRaises(ValueError, lambda: setter(4, -1))
-        self.assertRaises(IndexError, lambda: setter(5, 0))
 
     _equal_atoms = utils.equal_atoms
 
@@ -888,11 +705,11 @@ class TestLammpsMissingParameters(FileIOTestCase):
         )
         self.assertRaises(ParameterError, self.top.parametrize)
 
-class TestLammpsTopHelperFunctions(FileIOTestCase):
+class TestLammpsDataHelperFunctions(FileIOTestCase):
     """ Test LAMMPS helper functions """
 
     def setUp(self):
-        self.top = LammpsTopologyFile()
+        self.top = LammpsDataFile()
         self.top.add_atom(Atom(name='C1'), 'ABC', 1)
         self.top.add_atom(Atom(name='C1'), 'DEF', 2)
         self.top.add_atom(Atom(name='C1'), 'GHI', 3)
@@ -903,7 +720,7 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         FileIOTestCase.setUp(self)
 
     def test_parse_pairs(self):
-        """ Test LammpsTopologyFile._parse_pairs """
+        """ Test LammpsDataFile._parse_pairs """
         self.assertRaises(LammpsWarning, lambda:
                 self.top._parse_pairs('1  2  3\n', dict(), self.top.atoms))
         warnings.filterwarnings('ignore', category=LammpsWarning)
@@ -911,7 +728,7 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         self.assertTrue(self.top.unknown_functional)
 
     def test_parse_angles(self):
-        """ Test LammpsTopologyFile._parse_angles """
+        """ Test LammpsDataFile._parse_angles """
         self.assertRaises(LammpsWarning, lambda:
                 self.top._parse_angles('1  2  3  2\n', dict(), dict(),
                                        self.top.atoms)
@@ -921,7 +738,7 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         self.assertTrue(self.top.unknown_functional)
 
     def test_parse_dihedrals(self):
-        """ Test LammpsTopologyFile._parse_dihedrals """
+        """ Test LammpsDataFile._parse_dihedrals """
         self.assertRaises(LammpsWarning, lambda:
                 self.top._parse_dihedrals('1 2 3 4 100\n', dict(), dict(),
                                           self.top)
@@ -945,7 +762,7 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         self.assertEqual(len(PMD[tuple(self.top.atoms[:4])]), 2)
 
     def test_parse_cmaps(self):
-        """ Test LammpsTopologyFile._parse_cmaps """
+        """ Test LammpsDataFile._parse_cmaps """
         self.assertRaises(LammpsWarning, lambda:
                 self.top._parse_cmaps('1 2 3 4 5 2\n', self.top.atoms))
         warnings.filterwarnings('ignore', category=LammpsWarning)
@@ -953,7 +770,7 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         self.assertTrue(self.top.unknown_functional)
 
     def test_parse_settles(self):
-        """ Test LammpsTopologyFile._parse_settles """
+        """ Test LammpsDataFile._parse_settles """
         self.assertRaises(LammpsError, lambda:
                 self.top._parse_settles('whatever', self.top.atoms))
         self.assertRaises(LammpsError, lambda:
@@ -966,7 +783,7 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         )
 
     def test_parse_vsite3(self):
-        """ Test LammpsTopologyFile._parse_vsites3 """
+        """ Test LammpsDataFile._parse_vsites3 """
         self.assertRaises(LammpsError, lambda:
                 self.top._parse_vsites3('1 2 3 4 1 1.2 1.3\n', self.top.atoms,
                                         ParameterSet())
@@ -982,7 +799,7 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         )
 
     def test_parse_atomtypes(self):
-        """ Test LammpsTopologyFile._parse_atomtypes """
+        """ Test LammpsDataFile._parse_atomtypes """
         name, typ = self.top._parse_atomtypes('CX 12.01 0 A 0.1 2.0')
         self.assertEqual(name, 'CX')
         self.assertEqual(typ.atomic_number, 6)
@@ -991,7 +808,7 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         self.assertEqual(typ.sigma, 1)
 
     def test_parse_bondtypes(self):
-        """ Test LammpsTopologyFile._parse_bondtypes """
+        """ Test LammpsDataFile._parse_bondtypes """
         self.assertRaises(LammpsWarning, lambda:
                 self.top._parse_bondtypes('CA CB 2 0.1 5000'))
         warnings.filterwarnings('ignore', category=LammpsWarning)
@@ -999,7 +816,7 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         self.assertTrue(self.top.unknown_functional)
 
     def test_parse_angletypes(self):
-        """ Test LammpsTopologyFile._parse_angletypes """
+        """ Test LammpsDataFile._parse_angletypes """
         self.assertRaises(LammpsWarning, lambda:
                 self.top._parse_angletypes('CA CB CC 2 120 5000'))
         warnings.filterwarnings('ignore', category=LammpsWarning)
@@ -1007,7 +824,7 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         self.assertTrue(self.top.unknown_functional)
 
     def test_parse_dihedraltypes(self):
-        """ Test LammpsTopologyFile._parse_dihedraltypes """
+        """ Test LammpsDataFile._parse_dihedraltypes """
         key, dtype, ptype, replace = self.top._parse_dihedraltypes(
                                         'CA CA 9 180 50.0 2')
         self.assertEqual(key, ('X', 'CA', 'CA', 'X'))
@@ -1023,31 +840,16 @@ class TestLammpsTopHelperFunctions(FileIOTestCase):
         self.assertTrue(self.top.unknown_functional)
 
     def test_parse_cmaptypes(self):
-        """ Test LammpsTopologyFile._parse_cmaptypes """
+        """ Test LammpsDataFile._parse_cmaptypes """
         self.assertRaises(LammpsError, lambda:
                 self.top._parse_cmaptypes('C1 C2 C3 C4 C5 1 24 24 1 2 3 4 5'))
         self.assertRaises(LammpsError, lambda:
                 self.top._parse_cmaptypes('C1 C2 C3 C4 C5 1 2 3 1 2 3 4 5 6'))
 
-class TestLammpsGro(FileIOTestCase):
+class TestLammpsInput(FileIOTestCase):
     """ Tests the Lammps input file parser """
 
-    def test_gro_velocities(self):
-        """ Test parsing and writing LAMMPS input files with velocities """
-        gro = load_file(get_fn('1aki.ff99sbildn.gro'))
-        self.assertIsInstance(gro, Structure)
-        vel = np.random.rand(len(gro.atoms), 3)
-        gro.velocities = vel
-        fn = get_fn('test.gro', written=True)
-        gro.save(fn)
-        self.assertTrue(LammpsInputFile.id_format(fn))
-        gro.save(fn, overwrite=True, precision=8)
-        self.assertTrue(LammpsInputFile.id_format(fn))
-        with open(fn) as f:
-            tmp = LammpsInputFile.parse(f)
-        np.testing.assert_allclose(vel, tmp.velocities, atol=1e-8)
-
-    def test_gro_detection(self):
+    def test_input_detection(self):
         """ Tests automatic detection of LAMMPS input files """
         fn = get_fn('candidate.gro', written=True)
         with open(fn, 'w') as f:
@@ -1057,7 +859,7 @@ class TestLammpsGro(FileIOTestCase):
         f = StringIO('Lammps title line\n notanumber\nsome line\n')
         self.assertRaises(LammpsError, lambda: LammpsInputFile.parse(f))
 
-    def test_read_gro_file(self):
+    def test_read_input_file(self):
         """ Tests reading input file """
         gro = LammpsInputFile.parse(get_fn('1aki.ff99sbildn.gro'))
         self.assertIsInstance(gro, Structure)
@@ -1091,7 +893,7 @@ class TestLammpsGro(FileIOTestCase):
             f.write(''.join(lines))
         self.assertRaises(LammpsError, lambda: LammpsInputFile.parse(fn))
 
-    def test_write_gro_file(self):
+    def test_write_input_file(self):
         """ Tests writing input file """
         gro = LammpsInputFile.parse(get_fn('1aki.ff99sbildn.gro'))
         LammpsInputFile.write(gro, get_fn('1aki.ff99sbildn.gro', written=True))
@@ -1112,19 +914,6 @@ class TestLammpsGro(FileIOTestCase):
         self.assertAlmostEqual(gro.box[4], 109.47126278)
         self.assertAlmostEqual(gro.box[5], 70.52875398)
         self.assertRaises(TypeError, lambda: LammpsInputFile.write(gro, 10))
-
-    def test_write_gro_file_nobox(self):
-        """ Test LAMMPS input file writing without a box """
-        parm = load_file(get_fn('trx.prmtop'), get_fn('trx.inpcrd'))
-        self.assertIs(parm.box, None)
-        fn = get_fn('test.gro', written=True)
-        parm.save(fn)
-        # Make sure it has a box
-        gro = load_file(fn)
-        self.assertIsNot(gro.box, None)
-        parm.save(fn, nobox=True, overwrite=True)
-        gro = load_file(fn)
-        self.assertIs(gro.box, None)
 
 
 if __name__ == '__main__':

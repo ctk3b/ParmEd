@@ -18,6 +18,8 @@ except ImportError:
 import sys
 import warnings
 
+import numpy as np
+
 from parmed.constants import TINY, DEG_TO_RAD
 from parmed.exceptions import LammpsError, LammpsWarning, ParameterError
 from parmed.formats.registry import FileFormatType
@@ -35,48 +37,43 @@ from parmed.utils.io import genopen
 from parmed.utils.six import add_metaclass, string_types, iteritems
 from parmed.utils.six.moves import range
 
+# Bonds - http://lammps.sandia.gov/doc/bond_style.html
+# ----------------------------------------------------
+# class2      - COMPASS (class 2) bond
+# fene        - FENE (finite-extensible non-linear elastic) bond
+# fene/expand - FENE bonds with variable size particles
+# harmonic    - harmonic bond
+# morse       - Morse bond
+# nonlinear   - nonlinear bond
+# quartic     - breakable quartic bond
+# table       - tabulated by bond length
 
-# Lammps uses "funct" flags in its parameter files to indicate what kind of
-# functional form is used for each of its different parameter types. This is
-# taken from the topdirs.c source code file along with a table in the Lammps
-# user manual. The table below summarizes my findings, for reference:
+# Angles - http://lammps.sandia.gov/doc/angle_style.html
+# ------------------------------------------------------
+# charmm          - CHARMM angle
+# class2          - COMPASS (class 2) angle
+# cosine          - cosine angle potential
+# cosine/delta    - difference of cosines angle potential
+# cosine/periodic - DREIDING angle
+# cosine/squared  - cosine squared angle potential
+# harmonic        - harmonic angle
+# table           - tabulated by angle
 
-# Bonds
-# -----
-#  1 - F_BONDS : simple harmonic potential
-#  2 - F_G96BONDS : fourth-power potential
-#  3 - F_MORSE : morse potential
-#  4 - F_CUBICBONDS : cubic potential
-#  5 - F_CONNBONDS : not even implemented in GROMACS
-#  6 - F_HARMONIC : seems to be the same as (1) ??
-#  7 - F_FENEBONDS : finietely-extensible-nonlinear-elastic (FENE) potential
-#  8 - F_TABBONDS : bond function from tabulated function
-#  9 - F_TABBONDSNC : bond function from tabulated function (no exclusions)
-# 10 - F_RESTRBONDS : restraint bonds
+# Dihedrals - http://lammps.sandia.gov/doc/dihedral_style.html
+# ------------------------------------------------------------
+# charmm         - CHARMM dihedral
+# class2         - COMPASS (class 2) dihedral
+# harmonic       - harmonic dihedral
+# helix          - helix dihedral
+# multi/harmonic - multi-harmonic dihedral
+# opls           - OPLS dihedral
 
-# Angles
-# ------
-#  1 - F_ANGLES : simple harmonic potential
-#  2 - F_G96ANGLES : cosine-based angle potential
-#  3 - F_CROSS_BOND_BONDS : bond-bond cross term potential
-#  4 - F_CROSS_BOND_ANGLES : bond-angle cross term potential
-#  5 - F_UREY_BRADLEY : Urey-Bradley angle-bond potential
-#  6 - F_QUARTIC_ANGLES : 4th-order polynomial potential
-#  7 - F_TABANGLES : angle function from tabulated function
-#  8 - F_LINEAR_ANGLES : angle function from tabulated function
-#  9 - F_RESTRANGLES : restricted bending potential
-
-# Dihedrals
-# ---------
-#  1 - F_PDIHS : periodic proper torsion potential [ k(1+cos(n*phi-phase)) ]
-#  2 - F_IDIHS : harmonic improper torsion potential
-#  3 - F_RBDIHS : Ryckaert-Bellemans torsion potential
-#  4 - F_PIDIHS : periodic harmonic improper torsion potential (same as 1)
-#  5 - F_FOURDIHS : Fourier dihedral torsion potential
-#  8 - F_TABDIHS : dihedral potential from tabulated function
-#  9 - F_PDIHS : Same as 1, but can be multi-term
-# 10 - F_RESTRDIHS : Restricted torsion potential
-# 11 - F_CBTDIHS : combined bending-torsion potential
+# Impropers - http://lammps.sandia.gov/doc/improper_style.html
+# ------------------------------------------------------------
+# class2   - COMPASS (class 2) improper
+# cvff     - CVFF improper
+# harmonic - harmonic improper
+# umbrella - DREIDING improper
 
 
 @add_metaclass(FileFormatType)
@@ -197,7 +194,6 @@ class LammpsDataFile(Structure):
     #===================================================
 
     def __init__(self, fname=None, parametrize=True):
-        from parmed import load_file
         super(LammpsDataFile, self).__init__()
         self.parameterset = None
         if fname is not None:
@@ -208,7 +204,6 @@ class LammpsDataFile(Structure):
 
     def read(self, fname, parametrize=True):
         """ Reads the data file into the current instance """
-        from parmed import lammps as lmp
         self.params = self.parameterset = ParameterSet()
         # bond_types = dict()
         # angle_types = dict()
@@ -781,8 +776,18 @@ class LammpsDataFile(Structure):
         try:
             # Write the header
             now = datetime.now()
-            dest.write("{} - created by ParmEd VERSION {} on {}.\n".format(
+            dest.write("{} - created by ParmEd VERSION {} on {}.\n\n".format(
                 fname, __version__, now.strftime('%a. %B  %w %X %Y')))
+
+            dest.write('{:8d} atoms\n'.format(len(self.atoms)))
+            dest.write('{:8d} bonds\n'.format(len(self.bonds)))
+            dest.write('{:8d} angles\n'.format(len(self.angles)))
+            dest.write('{:8d} dihedrals\n'.format(len(self.dihedrals)))
+            dest.write('{:8d} impropers\n\n'.format(len(self.impropers)))
+
+            dest.write('{} {} xlo xhi\n'.format(-1, 1))
+            dest.write('{} {} ylo yhi\n'.format(-1, 1))
+            dest.write('{} {} zlo zhi\n'.format(-1, 1))
 
             # # Print all atom types
             # parfile.write('[ atomtypes ]\n')
@@ -939,8 +944,8 @@ class LammpsDataFile(Structure):
             for residue in self.residues:
                 for atom in residue:
                     runchg += atom.charge
-                    dest.write('{0:-6d} {1:-6d} {2:-6d} {3:5.8f} {4:12.7f}'
-                               ' {5:12.7f} {6:12.7f}  # qtot {7:.4f}\n'.format(
+                    dest.write('{0:-8d} {1:-8d} {2:-6d} {3: 10.6f} {4: 12.7f}'
+                               ' {5: 12.7f} {6: 12.7f}  # qtot {7: .6f}\n'.format(
                         atom.idx + 1,
                         residue.idx + 1,
                         #atom.type.n
@@ -954,7 +959,7 @@ class LammpsDataFile(Structure):
             if self.bonds:
                 dest.write('\nBonds\n\n')
                 for n, bond in enumerate(self.bonds):
-                    dest.write('{:d} {:d} {:d} {:d}\n'.format(
+                    dest.write('{:7d} {:7d} {:7d} {:7d}\n'.format(
                         n,
                         #bond.type.n,
                         1,

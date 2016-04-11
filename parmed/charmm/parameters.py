@@ -73,8 +73,12 @@ class CharmmParameterSet(ParameterSet):
     @staticmethod
     def _convert(data, type, msg=''):
         """
-        Converts a data type to a desired type, raising CharmmError if it
-        fails
+        Converts a data type to a desired type.
+
+        Raises
+        ------
+        CharmmError
+            If conversion is not possible.
         """
         try:
             return type(data)
