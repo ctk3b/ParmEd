@@ -50,7 +50,7 @@ class CharmmParameterSet(ParameterSet):
 
     Parameters
     ----------
-    filenames : list of str
+    *filenames : variable length arguments of str
         The list of topology, parameter, and stream files to load into the
         parameter set. The following file type suffixes are recognized:
             .rtf, .top -- Residue topology file
@@ -249,7 +249,7 @@ class CharmmParameterSet(ParameterSet):
         -------
         New CharmmParameterSet populated with parameters found in the provided
         files
-            
+
         Notes
         -----
         The RTF file is read first (if provided), followed by the PAR file,
@@ -325,25 +325,25 @@ class CharmmParameterSet(ParameterSet):
                 parameterset = line.strip()[1:78]
                 continue
             # Set section if this is a section header
-            if line.startswith('ATOM'):
+            if line.upper().startswith('ATOM'):
                 section = 'ATOMS'
                 continue
-            if line.startswith('BOND'):
+            if line.upper().startswith('BOND'):
                 section = 'BONDS'
                 continue
-            if line.startswith('ANGLE') or line.startswith('THETA'):
+            if line.upper().startswith('ANGLE') or line.upper().startswith('THETA'):
                 section = 'ANGLES'
                 continue
-            if line.startswith('DIHE') or line.startswith('PHI'): 
+            if line.upper().startswith('DIHE') or line.upper().startswith('PHI'):
                 section = 'DIHEDRALS'
                 continue
-            if line.startswith('IMPROPER') or line.startswith('IMPHI'):
+            if line.upper().startswith('IMPROPER') or line.upper().startswith('IMPHI'):
                 section = 'IMPROPER'
                 continue
-            if line.startswith('CMAP'):
+            if line.upper().startswith('CMAP'):
                 section = 'CMAP'
                 continue
-            if line.startswith('NONBONDED'):
+            if line.upper().startswith('NONBONDED'):
                 read_first_nonbonded = declared_geometric = False
                 section = 'NONBONDED'
                 # Get nonbonded keywords
@@ -380,14 +380,14 @@ class CharmmParameterSet(ParameterSet):
                         self.combining_rule = 'geometric'
                         declared_geometric = True
                 continue
-            if line.startswith('NBFIX'):
+            if line.upper().startswith('NBFIX'):
                 section = 'NBFIX'
                 continue
-            if line.startswith('HBOND'):
+            if line.upper().startswith('HBOND'):
                 section = None
                 continue
             # It seems like files? sections? can be terminated with 'END'
-            if line[:3].upper() == 'END': # should this be case-insensitive?
+            if line[:3].upper() == 'END':
                 section = None
                 continue
             # If we have no section, skip
@@ -399,8 +399,8 @@ class CharmmParameterSet(ParameterSet):
             else:
                 penalty = None
             # Now handle each section specifically
-            if section == 'ATOMS':
-                if not line.startswith('MASS'): continue # Should this happen?
+            if section.upper() == 'ATOMS':
+                if not line.upper().startswith('MASS'): continue # Should this happen?
                 words = line.split()
                 if words[0].upper() == 'END':
                     continue
@@ -425,7 +425,7 @@ class CharmmParameterSet(ParameterSet):
                 self.atom_types_int[atype.number] = atype
                 self.atom_types_tuple[(atype.name, atype.number)] = atype
                 continue
-            if section == 'BONDS':
+            if section.upper() == 'BONDS':
                 words = line.split()
                 if words[0].upper() == 'END':
                     continue
@@ -451,7 +451,7 @@ class CharmmParameterSet(ParameterSet):
                     self.bond_types[(type2, type1)] = bond_type
                 bond_type.penalty = penalty
                 continue
-            if section == 'ANGLES':
+            if section.upper() == 'ANGLES':
                 words = line.split()
                 if words[0].upper() == 'END':
                     continue
@@ -467,13 +467,15 @@ class CharmmParameterSet(ParameterSet):
                 angle_type = AngleType(k, theteq)
                 key = (type1, type2, type3)
                 if key in self.angle_types:
-                    # See if the existing angle type list has a different value and replaces it with a warning
+                    # See if the existing angle type list has a different value
+                    # and replaces it with a warning
                     if self.angle_types[key] != angle_type:
                         # Replace. Warn if they are different
                         warnings.warn('Replacing angle %r, %r with %r' %
-                                      (key, self.angle_types[key], angle_type), ParameterWarning)
-                        self.bond_types[(type1, type2, type3)] = angle_type
-                        self.bond_types[(type3, type2, type1)] = angle_type
+                                      (key, self.angle_types[key], angle_type),
+                                      ParameterWarning)
+                        self.angle_types[(type1, type2, type3)] = angle_type
+                        self.angle_types[(type3, type2, type1)] = angle_type
                 else: # key not present
                     self.angle_types[(type1, type2, type3)] = angle_type
                     self.angle_types[(type3, type2, type1)] = angle_type
@@ -489,7 +491,7 @@ class CharmmParameterSet(ParameterSet):
                 self.urey_bradley_types[(type3, type2, type1)] = ubtype
                 angle_type.penalty = penalty
                 continue
-            if section == 'DIHEDRALS':
+            if section.upper() == 'DIHEDRALS':
                 words = line.split()
                 if words[0].upper == 'END':
                     continue
@@ -529,7 +531,7 @@ class CharmmParameterSet(ParameterSet):
                     self.dihedral_types[(type1,type2,type3,type4)] = dtl
                     self.dihedral_types[(type4,type3,type2,type1)] = dtl
                 continue
-            if section == 'IMPROPER':
+            if section.upper() == 'IMPROPER':
                 words = line.split()
                 if words[0].upper() == 'END':
                     continue
@@ -567,7 +569,7 @@ class CharmmParameterSet(ParameterSet):
                     improp.improper = True
                 improp.penalty = penalty
                 continue
-            if section == 'CMAP':
+            if section.upper() == 'CMAP':
                 # This is the most complicated part, since cmap parameters span
                 # many lines. We won't do much error catching here.
                 words = line.split()
@@ -604,7 +606,7 @@ class CharmmParameterSet(ParameterSet):
                     current_cmap_res = res
                     current_cmap_data = []
                 continue
-            if section == 'NONBONDED':
+            if section.upper() == 'NONBONDED':
                 # Now get the nonbonded values
                 words = line.split()
                 if words[0].upper == 'END':
@@ -673,7 +675,7 @@ class CharmmParameterSet(ParameterSet):
                     eps14 = rmin14 = None
                 nonbonded_types[atype] = [epsilon, rmin, eps14, rmin14]
                 continue
-            if section == 'NBFIX':
+            if section.upper() == 'NBFIX':
                 words = line.split()
                 if words[0].upper() == 'END':
                     continue
@@ -717,8 +719,8 @@ class CharmmParameterSet(ParameterSet):
             for key in nonbonded_types:
                 self.atom_types_str[key].set_lj_params(*nonbonded_types[key])
         except KeyError:
-            raise RuntimeError('Atom type %s not present in AtomType list' %
-                               key)
+            warnings.warn('Atom type %s not present in AtomType list' % key,
+                          ParameterWarning)
         if parameterset is not None: self.parametersets.append(parameterset)
         if own_handle: f.close()
 
@@ -741,14 +743,13 @@ class CharmmParameterSet(ParameterSet):
             f = tfile
         hpatch = tpatch = None # default Head and Tail patches
         residues = dict()
-        patches = dict()
         hpatches = dict()
         tpatches = dict()
         line = next(f)
         try:
             while line:
                 line = line.strip()
-                if line[:4] == 'MASS':
+                if line[:4].upper() == 'MASS':
                     words = line.split()
                     try:
                         idx = conv(words[1], int, 'atom type')
@@ -771,9 +772,9 @@ class CharmmParameterSet(ParameterSet):
                     self.atom_types_str[atype.name] = atype
                     self.atom_types_int[atype.number] = atype
                     self.atom_types_tuple[(atype.name, atype.number)] = atype
-                elif line[:4] == 'DECL':
+                elif line[:4].upper() == 'DECL':
                     pass # Not really sure what this means
-                elif line[:4] == 'DEFA':
+                elif line[:4].upper() == 'DEFA':
                     words = line.split()
                     if len(words) < 5:
                         warnings.warn('DEFA line has %d tokens; expected 5' %
@@ -794,6 +795,9 @@ class CharmmParameterSet(ParameterSet):
                     # Get the residue definition
                     words = line.split()
                     resname = words[1].upper()
+                    if resname in self.residues:
+                        warnings.warn('Replacing residue %r' %
+                                              resname, ParameterWarning)
                     # Assign default patches
                     hpatches[resname] = hpatch
                     tpatches[resname] = tpatch
@@ -824,7 +828,7 @@ class CharmmParameterSet(ParameterSet):
                             atom = Atom(name=name, type=type, charge=charge)
                             group.append(atom)
                             res.add_atom(atom)
-                        elif line.strip() and line.split()[0].upper() in \
+                        elif line.strip().upper() and line.split()[0].upper() in \
                                 ('BOND', 'DOUBLE'):
                             it = iter([w.upper() for w in line.split()[1:]])
                             for a1, a2 in zip(it, it):
@@ -883,7 +887,7 @@ class CharmmParameterSet(ParameterSet):
                     if restype == 'RESI':
                         residues[resname] = res
                     elif restype == 'PRES':
-                        patches[resname] = res
+                        self.patches[resname] = res
                     else:
                         assert False, 'restype != RESI or PRES'
                     # We parsed a line we need to look at. So don't update the
@@ -898,17 +902,16 @@ class CharmmParameterSet(ParameterSet):
         for resname, res in iteritems(residues):
             if hpatches[resname] is not None:
                 try:
-                    res.first_patch = patches[hpatches[resname]]
+                    res.first_patch = self.patches[hpatches[resname]]
                 except KeyError:
                     warnings.warn('Patch %s not found' % hpatches[resname])
             if tpatches[resname] is not None:
                 try:
-                    res.last_patch = patches[tpatches[resname]]
+                    res.last_patch = self.patches[tpatches[resname]]
                 except KeyError:
                     warnings.warn('Patch %s not found' % tpatches[resname])
         # Now update the residues and patches with the ones we parsed here
         self.residues.update(residues)
-        self.patches.update(patches)
 
         if own_handle: f.close()
 

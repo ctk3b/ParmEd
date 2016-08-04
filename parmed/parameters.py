@@ -7,10 +7,9 @@ Author: Jason M. Swails
 """
 from __future__ import print_function, division
 
-from parmed.exceptions import ParameterError
+from parmed.exceptions import ParameterError, ParameterWarning
 from parmed.topologyobjects import (NoUreyBradley, DihedralTypeList,
                 AtomType, DihedralType, UnassignedAtomType)
-from parmed.utils import canonical_improper_order
 from parmed.utils.six.moves import range
 from parmed.utils.six import iteritems
 from collections import OrderedDict
@@ -240,7 +239,7 @@ class ParameterSet(object):
             params.angle_types[key] = typ
             params.angle_types[tuple(reversed(key))] = typ
             if angle.funct == 5:
-                key = (angle.atom1.type, angle.atom3.type)
+                key = (angle.atom1.type, angle.atom2.type, angle.atom3.type)
                 params.urey_bradley_types[key] = NoUreyBradley
                 params.urey_bradley_types[tuple(reversed(key))] = NoUreyBradley
         for dihedral in struct.dihedrals:
@@ -248,10 +247,8 @@ class ParameterSet(object):
             key = (dihedral.atom1.type, dihedral.atom2.type,
                    dihedral.atom3.type, dihedral.atom4.type)
             if dihedral.improper:
-                key = cls._periodic_improper_key(
-                        dihedral.atom1, dihedral.atom2,
-                        dihedral.atom3, dihedral.atom4,
-                )
+                key = (dihedral.atom1.type, dihedral.atom2.type,
+                       dihedral.atom3.type, dihedral.atom4.type)
                 if key in params.improper_periodic_types:
                     if (not allow_unequal_duplicates and
                             params.improper_periodic_types[key] != dihedral.type):
@@ -349,15 +346,24 @@ class ParameterSet(object):
             typ = copy(cmap.type)
             params.cmap_types[key] = typ
             params.cmap_types[tuple(reversed(key))] = typ
+        urey_brads_preassigned = len(params.urey_bradley_types) > 0
         for urey in struct.urey_bradleys:
             if urey.type is None or urey.type is NoUreyBradley: continue
-            key = (urey.atom1.type, urey.atom2.type)
-            if key not in params.urey_bradley_types:
+            key = _find_ureybrad_key(urey)
+            if key is None: continue
+            if urey_brads_preassigned and key not in params.urey_bradley_types:
                 warnings.warn('Angle corresponding to Urey-Bradley type not '
-                              'found')
+                              'found', ParameterWarning)
             typ = copy(urey.type)
             params.urey_bradley_types[key] = typ
             params.urey_bradley_types[tuple(reversed(key))] = typ
+        if not urey_brads_preassigned and len(params.urey_bradley_types) > 0:
+            # Go through all of our angle parameters and make sure there is a
+            # matching Urey-Bradley list. If there's not, that means there is no
+            # Urey-Bradley term for that angle
+            for key in params.angle_types:
+                if key in params.urey_bradley_types: continue
+                params.urey_bradley_types[key] = NoUreyBradley
         for adjust in struct.adjusts:
             if adjust.type is None: continue
             key = (adjust.atom1.type, adjust.atom2.type)
@@ -439,11 +445,6 @@ class ParameterSet(object):
                 if typedict[key1] == typedict[key2]:
                     typedict[key2] = typedict[key1]
 
-    @staticmethod
-    def _periodic_improper_key(atom1, atom2, atom3, atom4):
-        a1, a2, a3, a4 = canonical_improper_order(atom1, atom2, atom3, atom4)
-        return (a1.type, a2.type, a3.type, a4.type)
-
     @property
     def combining_rule(self):
         return self._combining_rule
@@ -466,3 +467,15 @@ class ParameterSet(object):
                 assert isinstance(residue, ResidueTemplate), 'Wrong type!'
                 for atom in residue:
                     atom.atom_type = self.atom_types[atom.type]
+
+def _find_ureybrad_key(urey):
+    """
+    Finds a key for a given Urey-Bradley by finding the middle atom in an angle.
+    Raises a ParameterWarning if no middle atom found
+    """
+    a1, a2 = urey.atom1, urey.atom2
+    shared_bond_partners = set(a1.bond_partners) & set(a2.bond_partners)
+    if len({a.type for a in shared_bond_partners}) != 1:
+        warnings.warn('Urey-Bradley %r shares multiple central atoms',
+                      ParameterWarning)
+    return (a1.type, list(shared_bond_partners)[0].type, a2.type)

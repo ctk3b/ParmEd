@@ -140,6 +140,8 @@ class TestParmedSerialization(unittest.TestCase):
         """ Tests the serialization of AmberParm """
         structure = pmd.load_file(utils.get_fn('ash.parm7'))
         unpickled = pickle.loads(pickle.dumps(structure))
+        self.assertFalse(structure.unknown_functional)
+        self.assertFalse(structure.unknown_functional)
 
         self._compare_structures(unpickled, structure)
 
@@ -156,6 +158,10 @@ class TestParmedSerialization(unittest.TestCase):
         self.assertEqual(structure.version, unpickled.version)
         self.assertEqual(structure.name, unpickled.name)
         self.assertIs(pmd.amber.AmberParm, type(unpickled))
+
+        # Now check that unknown_functional gets properly deserialized
+        structure.unknown_functional = True
+        self.assertTrue(pickle.loads(pickle.dumps(structure)).unknown_functional)
 
     def test_chamberparm_serialization(self):
         """ Tests the serialization of ChamberParm """
@@ -211,7 +217,7 @@ class TestParmedSerialization(unittest.TestCase):
         # Check metadata
         for key in ('experimental', 'journal', 'authors', 'keywords', 'doi',
                     'pmid', 'journal_authors', 'volume_page', 'title', 'year',
-                    'resolution', 'related_entries'):
+                    'resolution', 'related_entries', 'space_group'):
             self.assertEqual(getattr(structure, key), getattr(unpickled, key))
 
     def test_pdbtraj_serialization(self):

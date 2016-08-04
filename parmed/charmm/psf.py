@@ -64,7 +64,7 @@ class _ZeroDict(dict):
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-_resre = re.compile(r'(\d+)([a-zA-Z]*)')
+_resre = re.compile(r'(-?\d+)([a-zA-Z]*)')
 
 class CharmmPsfFile(Structure):
     """
@@ -112,12 +112,12 @@ class CharmmPsfFile(Structure):
         psf : file
             Open file that is pointing to the first line of the section that is
             to be parsed
-        
+
         Returns
         -------
-        title : str 
+        title : str
             The label of the PSF section we are parsing
-        pointers : (int/tuple of ints) 
+        pointers : (int/tuple of ints)
             If one pointer is set, pointers is simply the integer that is value
             of that pointer. Otherwise it is a tuple with every pointer value
             defined in the first line
@@ -436,7 +436,7 @@ class CharmmPsfFile(Structure):
         ----------
         params : CharmmParameterSet=None
             If not None, this parameter set will be loaded
-        
+
         See Also
         --------
         :meth:`parmed.structure.Structure.createSystem`
@@ -448,7 +448,7 @@ class CharmmPsfFile(Structure):
 
     #===================================================
 
-    def load_parameters(self, parmset):
+    def load_parameters(self, parmset, copy_parameters=True):
         """
         Loads parameters from a parameter set that was loaded via CHARMM RTF,
         PAR, and STR files.
@@ -457,6 +457,45 @@ class CharmmPsfFile(Structure):
         ----------
         parmset : :class:`CharmmParameterSet`
             List of all parameters
+
+        copy_parameters : bool, optional, default=True
+            If False, parmset will not be copied.
+
+            WARNING:
+            -------
+            Not copying parmset will cause ParameterSet and Structure to share
+            references to types.  If you modify the original parameter set, the
+            references in Structure list_types will be silently modified.
+            However, if you change any reference in the parameter set, then that
+            reference will no longer be shared with structure.
+
+            Example where the reference in ParameterSet is changed. The
+            following will NOT modify the parameters in the psf::
+
+                psf.load_parameters(parmset, copy_parameters=False)
+                parmset.angle_types[('a1', 'a2', a3')] = AngleType(1, 2)
+
+            The following WILL change the parameter in the psf because the
+            reference has not been changed in ``ParameterSet``::
+
+                psf.load_parameters(parmset, copy_parameters=False)
+                a = parmset.angle_types[('a1', 'a2', 'a3')]
+                a.k = 10
+                a.theteq = 100
+
+            Extra care should be taken when trying this with dihedral_types.
+            Since dihedral_type is a Fourier sequence, ParameterSet stores
+            DihedralType for every term in DihedralTypeList. Therefore, the
+            example below will STILL modify the type in the :class:`Structure`
+            list_types::
+
+                parmset.dihedral_types[('a', 'b', 'c', 'd')][0] = DihedralType(1, 2, 3)
+
+            This assigns a new instance of DihedralType to an existing
+            DihedralTypeList that ParameterSet and Structure are tracking and
+            the shared reference is NOT changed.
+
+            Use with caution!
 
         Notes
         -----
@@ -473,7 +512,8 @@ class CharmmPsfFile(Structure):
         ------
         ParameterError if any parameters cannot be found
         """
-        parmset = _copy(parmset)
+        if copy_parameters:
+            parmset = _copy(parmset)
         self.combining_rule = parmset.combining_rule
         # First load the atom types
         for atom in self.atoms:
@@ -572,11 +612,17 @@ class CharmmPsfFile(Structure):
             a1, a2, a3, a4 = imp.atom1, imp.atom2, imp.atom3, imp.atom4
             at1, at2, at3, at4 = a1.type, a2.type, a3.type, a4.type
             key = tuple(sorted([at1, at2, at3, at4]))
+            altkey1 = a1.type, a2.type, a3.type, a4.type
+            altkey2 = a4.type, a3.type, a2.type, a1.type
             # Check for exact harmonic or exact periodic
             if key in parmset.improper_types:
                 imp.type = parmset.improper_types[key]
             elif key in parmset.improper_periodic_types:
                 imp.type = parmset.improper_periodic_types[key]
+            elif altkey1 in parmset.improper_periodic_types:
+                imp.type = parmset.improper_periodic_types[altkey1]
+            elif altkey2 in parmset.improper_periodic_types:
+                imp.type = parmset.improper_periodic_types[altkey2]
             else:
                 # Check for wild-card harmonic
                 for anchor in (at2, at3, at4):
@@ -593,7 +639,7 @@ class CharmmPsfFile(Structure):
                             break
                     # Not found anywhere
                     if key not in parmset.improper_periodic_types:
-                        raise ParameterError('No improper parameters found for'
+                        raise ParameterError('No improper parameters found for '
                                              '%r' % imp)
             imp.type.used = False
         # prepare list of harmonic impropers present in system
@@ -665,12 +711,12 @@ def set_molecules(atoms):
     owner = []
     # The way I do this is via a recursive algorithm, in which
     # the "set_owner" method is called for each bonded partner an atom
-    # has, which in turn calls set_owner for each of its partners and 
+    # has, which in turn calls set_owner for each of its partners and
     # so on until everything has been assigned.
     molecule_number = 1 # which molecule number we are on
     for i in range(len(atoms)):
         # If this atom has not yet been "owned", make it the next molecule
-        # However, we only increment which molecule number we're on if 
+        # However, we only increment which molecule number we're on if
         # we actually assigned a new molecule (obviously)
         if not atoms[i].marked:
             tmp = [i]
