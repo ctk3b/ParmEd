@@ -88,9 +88,9 @@ def load_topology(topology, system=None, xyz=None, box=None):
                                 name=a.name, mass=a.element.mass)
 
                 if hasattr(a, 'type') and a.type:
-                    atom.type_name = a.type
+                    atom._type_name = a.type
                 else:
-                    atom.type_name = ''
+                    atom._type_name = ''
 
                 struct.add_atom(atom, residue, resid, chain)
                 atommap[a] = atom
@@ -379,8 +379,8 @@ def _process_nonbonded(struct, force):
         atom = struct.atoms[i]
         chg, sig, eps = force.getParticleParameters(i)
 
-        if atom.type_name:
-            atype_name = atom.type_name
+        if atom._type_name:
+            atype_name = atom._type_name
         else:
             atype_name = Element[atom.atomic_number]
 
@@ -388,7 +388,7 @@ def _process_nonbonded(struct, force):
         if key in typemap:
             atom_type = typemap[key]
         else:
-            if not atom.type_name:
+            if not atom._type_name:
                 element_typemap[atype_name] += 1
                 atype_name = '%s%d' % (atype_name, element_typemap[atype_name])
             typemap[key] = atom_type = AtomType(atype_name, None, atom.mass,
@@ -399,6 +399,7 @@ def _process_nonbonded(struct, force):
         atom_type.set_lj_params(eps, rmin)
         atom.atom_type = atom_type
         atom.type = atom_type.name
+        del atom._type_name
 
     explicit_exceptions = defaultdict(set)
     bond_graph_exceptions = defaultdict(set)
